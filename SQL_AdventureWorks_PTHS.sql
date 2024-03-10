@@ -1,7 +1,5 @@
-
-
 ---------Query 01: Calc Quantity of items, Sales value & Order quantity by each Subcategory in last 12M
-				-- Tính số lượng item, giá trị doanh số và lượng đơn hàng theo mỗi danh mục con trong 12 tháng gần nhất
+		-- Tính số lượng item, giá trị doanh số và lượng đơn hàng theo mỗi danh mục con trong 12 tháng gần nhất
 
 SELECT 
   FORMAT_DATE('%b %Y',t2.ModifiedDate) AS period,
@@ -12,15 +10,15 @@ SELECT
 FROM `adventureworks2019.Sales.Product`  AS t1
 LEFT JOIN `adventureworks2019.Sales.SalesOrderDetail` AS t2
   ON t1.ProductID = t2.ProductID
-WHERE date(t2.ModifiedDate) >= (SELECT 
-									date_sub(max(date(t2.ModifiedDate)), INTERVAL 12 month)
-								FROM `adventureworks2019.Sales.SalesOrderDetail`)
+WHERE date(t2.ModifiedDate) >= (SELECT date_sub(max(date(t2.ModifiedDate)), INTERVAL 12 month)
+				FROM `adventureworks2019.Sales.SalesOrderDetail`)
 GROUP BY Name, period
 ORDER BY period DESC, Name;
 
 
 ---------Query 02: Calc % YoY growth rate by SubCategory & release top 3 cat WITH highest grow rate. Round results to 2 decimal
-				-- Tính tỷ lệ tăng trưởng % YoY theo Danh mục phụ và hiển thị top 3 danh mục có tốc độ tăng trưởng cao nhất. Làm tròn kết quả đến 2 số thập phân.
+		-- Tính tỷ lệ tăng trưởng % YoY theo Danh mục phụ và hiển thị top 3 danh mục có tốc độ tăng trưởng cao nhất.
+		-- Làm tròn kết quả đến 2 số thập phân.
 WITH 
 sale_info AS (
   SELECT 
@@ -39,8 +37,7 @@ sale_info AS (
 sale_diff AS (
   SELECT *,
   LEAD (qty_item) OVER (PARTITION BY Name ORDER BY yr DESC) AS prv_qty,
-  ROUND(
-  		qty_item / (LEAD (qty_item) OVER (PARTITION BY Name ORDER BY yr DESC)) -1
+  ROUND(qty_item / (LEAD (qty_item) OVER (PARTITION BY Name ORDER BY yr DESC)) -1
   	,2)
   AS qty_diff
   FROM sale_info
@@ -58,15 +55,15 @@ LIMIT 3;
 
 
 ---------Query 03: Ranking Top 3 TeritoryID with biggest Order quantity of every year.
-				-- If there's TerritoryID with same quantity in a year, do not skip the rank number
-				-- Xếp hạng Top 3 TeritoryID có số lượng đặt hàng lớn nhất mỗi năm. Không bỏ qua STT đồng hạng
+		-- If there's TerritoryID with same quantity in a year, do not skip the rank number
+		-- Xếp hạng Top 3 TeritoryID có số lượng đặt hàng lớn nhất mỗi năm. Không bỏ qua STT đồng hạng
 
 SELECT *
-FROM (
+FROM(
   SELECT
     *,
     DENSE_RANK() OVER(PARTITION BY year ORDER BY order_cnt DESC) AS rk
-  FROM (
+  FROM(
     SELECT 
       EXTRACT(year FROM date(t1.ModifiedDate)) AS year,
       TerritoryID,
@@ -82,7 +79,7 @@ WHERE rk <= 3;
 
 
 ---------Query 04: Calc Total Discount Cost belongs to Seasonal Discount for each SubCategory
-				-- Tính tổng chi phí chiết khấu thuộc về Giảm giá theo mùa cho từng Danh mục phụ
+		-- Tính tổng chi phí chiết khấu thuộc về Giảm giá theo mùa cho từng Danh mục phụ
 
 SELECT 
     FORMAT_TIMESTAMP("%Y", ModifiedDate),
@@ -102,13 +99,14 @@ FROM (
       LEFT JOIN `adventureworks2019.Sales.SpecialOffer` d 
       	ON a.SpecialOfferID = d.SpecialOfferID
       WHERE lower(d.Type) like '%seasonal discount%' 
-	)
+)
 GROUP BY 1,2;
 
 
 ---------Query 05: Retention rate of Customer in 2014 WITH status of Successfully Shipped (Cohort Analysis) 
-				-- Tỷ lệ giữ chân khách hàng năm 2014 với trạng thái Đã giao hàng thành công (Phân tích đoàn hệ)
-WITH info AS (
+		-- Tỷ lệ giữ chân khách hàng năm 2014 với trạng thái Đã giao hàng thành công (Phân tích đoàn hệ)
+WITH 
+info AS (
   SELECT
     EXTRACT(month FROM date(ModifiedDate)) AS month_order,
     EXTRACT(year FROM date(ModifiedDate)) AS yr,
@@ -159,11 +157,12 @@ ORDER BY month_join;
 
 
 ---------Query 06: Trend of Stock level & MoM diff % by all product in 2011. If %gr rate is null then 0. Round to 1 decimal
-				-- Xu hướng mức tồn kho & % chênh lệch tháng qua tháng theo tất cả sản phẩm trong năm 2011. Tỷ lệ %gr là null thì = 0. Làm tròn đến 1 c/số thập phân
+		-- Xu hướng mức tồn kho & % chênh lệch tháng qua tháng theo tất cả sản phẩm trong năm 2011. Tỷ lệ %gr là null thì = 0.
+		-- Làm tròn đến 1 chữ số thập phân
 
 WITH raw AS (
 	SELECT
-  		EXTRACT(month FROM a.ModifiedDate) AS mth, 
+  	EXTRACT(month FROM a.ModifiedDate) AS mth, 
     	EXTRACT(year FROM a.ModifiedDate) AS yr, 
     	b.Name,
     	SUM(StockedQty) AS stock_qty
@@ -182,15 +181,14 @@ SELECT DISTINCT Name,
       stock_prv, 
       COALESCE(ROUND((stock_qty /stock_prv - 1)*100,1),0) AS diff
 FROM (
-	SELECT *,
-		LEAD (stock_qty) OVER (PARTITION BY Name ORDER BY mth DESC) AS stock_prv
-    FROM raw
-    )
+	SELECT *, LEAD (stock_qty) OVER (PARTITION BY Name ORDER BY mth DESC) AS stock_prv
+    	FROM raw
+)
 ORDER BY 1 ASC, 2 DESC;
 
 
 ---------Query 07: Calc Ratio of Stock / Sales in 2011 by product name, by month. Order results by month DESC, ratio DESC. Round Ratio to 1 decimal
-				-- Tính tỷ lệ tồn kho/doanh thu năm 2011 theo tên sản phẩm, theo tháng. Sắp xếp kết quả tháng DESC, tỷ lệ DESC. Tỷ lệ làm tròn đến 1 thập phân
+		-- Tính tỷ lệ tồn kho/doanh thu năm 2011 theo tên sản phẩm, theo tháng. Sắp xếp kết quả tháng DESC, tỷ lệ DESC. Tỷ lệ làm tròn đến 1 thập phân
 
 WITH a AS(
   SELECT
@@ -216,6 +214,7 @@ b AS(
   USING(ProductID)
   WHERE EXTRACT(year FROM date(t3.ModifiedDate)) = 2011
   GROUP BY ProductID, mth)
+	
 SELECT
   a.mth,
   a.yr,
@@ -233,7 +232,7 @@ ORDER BY mth DESC, ratio DESC;
 
 
 ---------Query 08: No of order and value at Pending status in 2014
-				-- Số lượng đơn hàng và giá trị ở trạng thái Chờ xử lý năm 2014
+		-- Số lượng đơn hàng và giá trị ở trạng thái Chờ xử lý năm 2014
 
 SELECT 
 	EXTRACT(year FROM date(ModifiedDate)) AS yr,
